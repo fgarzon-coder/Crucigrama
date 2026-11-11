@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crucigrama Eléctrico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+html{color-scheme:light dark}body{margin:0}
+
+/* Concepto: tablero suave de crucigrama sobre fondo crema, con lila como único color de acción. Pistas al costado, pista activa fija sobre el tablero. */
+:root{
+  --bg:#F8F2E6; --surface:#FFFCF5; --fg:#2C2540; --muted:#6B6382; --line:#DDD3EC;
+  --accent:#7E5FD0; --accent-fg:#FFFFFF; --accent-soft:#E7DEF9; --accent-mid:#C9B6F0;
+  --word:#EFE8FB; --cell:#FFFFFF; --cell-line:#CFC3E6;
+  --ok:#3F8A64; --ok-bg:#DDF1E5; --bad:#B8445C; --bad-bg:#F8DDE3;
+  --f-display:"Bricolage Grotesque","DM Sans",system-ui,sans-serif;
+  --f-body:"DM Sans",system-ui,sans-serif;
+  --size:clamp(20px,calc((100vw - 34px) / 17.4),32px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1A1626; --surface:#231D34; --fg:#EEE9F8; --muted:#A399BC; --line:#37304C;
+  --accent:#B79CFF; --accent-fg:#1A1626; --accent-soft:#3A2F5C; --accent-mid:#5B4A92;
+  --word:#2F2747; --cell:#2A2340; --cell-line:#4A4066;
+  --ok:#7FD1A2; --ok-bg:#1E3A2C; --bad:#F08AA0; --bad-bg:#46222D;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1A1626; --surface:#231D34; --fg:#EEE9F8; --muted:#A399BC; --line:#37304C;
+  --accent:#B79CFF; --accent-fg:#1A1626; --accent-soft:#3A2F5C; --accent-mid:#5B4A92;
+  --word:#2F2747; --cell:#2A2340; --cell-line:#4A4066;
+  --ok:#7FD1A2; --ok-bg:#1E3A2C; --bad:#F08AA0; --bad-bg:#46222D;
+  color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:24px 56px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand svg{flex:none;width:40px;height:40px;color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip b{font-weight:600}
+
+.game{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:920px){.game{grid-template-columns:minmax(0,1fr)}}
+
+.clue-bar{background:var(--accent-soft);border-radius:12px;padding:10px 14px;margin-bottom:12px;min-height:3.4em;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.clue-bar small{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.clue-bar span{font-weight:500}
+.board-wrap{overflow-x:auto;padding:2px}
+.board{display:grid;gap:2px;width:max-content;grid-template-columns:repeat(var(--cols),var(--size));grid-auto-rows:var(--size)}
+.blank{width:var(--size);height:var(--size)}
+.cell{position:relative;width:var(--size);height:var(--size);background:var(--cell);border:1.5px solid var(--cell-line);border-radius:5px;box-sizing:border-box;cursor:pointer}
+.cell .num{position:absolute;top:1px;left:3px;font-size:calc(var(--size) * .3);line-height:1;color:var(--muted);pointer-events:none;font-variant-numeric:tabular-nums}
+.cell input{all:unset;box-sizing:border-box;width:100%;height:100%;text-align:center;font-family:var(--f-display);font-weight:700;font-size:calc(var(--size) * .58);color:var(--fg);text-transform:uppercase;padding-top:calc(var(--size) * .1);caret-color:transparent;cursor:pointer}
+.cell.word{background:var(--word);border-color:var(--accent-mid)}
+.cell.on{background:var(--accent-mid);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.cell.solved{background:var(--ok-bg);border-color:var(--ok)}
+.cell.solved.on{box-shadow:0 0 0 2px var(--ok)}
+.cell.hint input{color:var(--accent)}
+.cell.bad{background:var(--bad-bg);border-color:var(--bad)}
+.cell.bad input{color:var(--bad)}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+button{font:inherit;cursor:pointer}
+.btn{border:1.5px solid var(--accent);background:transparent;color:var(--accent);border-radius:999px;padding:7px 16px;font-weight:600;font-size:14px}
+.btn:hover{background:var(--accent-soft)}
+.btn.primary{background:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.quiet{border-color:var(--line);color:var(--muted)}
+.btn.quiet:hover{background:var(--surface);color:var(--fg)}
+button:focus-visible,.cell input:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.msg{min-height:1.5em;margin:10px 0 0;color:var(--muted);font-size:14px}
+.progress{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:14px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .25s}
+
+.clues{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 6px 10px;max-height:640px;overflow:auto}
+.clues h2{font-family:var(--f-display);font-size:1rem;margin:12px 12px 6px;color:var(--accent);letter-spacing:.02em}
+.clues ol{list-style:none;margin:0;padding:0}
+.clues li button{all:unset;box-sizing:border-box;display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:4px;width:100%;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1.4}
+.clues li button:hover{background:var(--word)}
+.clues li button:focus-visible{outline:2px solid var(--fg);outline-offset:-2px}
+.clues li .n{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.clues li.on button{background:var(--accent-soft)}
+.clues li.done button{color:var(--muted)}
+.clues li.done .t{text-decoration:line-through;text-decoration-color:var(--ok)}
+.clues li.done .n::after{content:" ✓";color:var(--ok)}
+.len{color:var(--muted);white-space:nowrap}
+
+.win{margin-top:20px;background:var(--ok-bg);border:1.5px solid var(--ok);border-radius:14px;padding:16px 18px}
+.win h2{font-family:var(--f-display);margin:0 0 6px;font-size:1.4rem}
+.win p{margin:0 0 10px}
+.win ul{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.win li{background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13.5px;font-weight:500}
+footer{margin-top:36px;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion:reduce){.progress i{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 40 40" role="img" aria-label="Rayo"><rect x="1" y="1" width="38" height="38" rx="11" fill="currentColor" opacity=".16"/><path d="M22.5 6 11 22h8l-2 12 12-17h-8z" fill="currentColor"/></svg>
+      <div>
+        <h1>Crucigrama Eléctrico</h1>
+        <p class="sub">Instalaciones, seguridad y medición. 13 palabras por resolver.</p>
+      </div>
+    </div>
+    <div class="stats" aria-live="polite">
+      <span class="chip">Palabras <b id="sWords">0/13</b></span>
+      <span class="chip">Tiempo <b id="sTime">00:00</b></span>
+    </div>
+  </header>
+
+  <div class="game">
+    <div>
+      <div class="clue-bar" id="clueBar" aria-live="polite"><small>Pista</small><span>Toca una casilla para empezar.</span></div>
+      <div class="board-wrap"><div class="board" id="board" role="group" aria-label="Tablero del crucigrama"></div></div>
+      <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+      <div class="actions">
+        <button class="btn primary" id="bCheck" type="button">Comprobar</button>
+        <button class="btn" id="bLetter" type="button">Pista de letra</button>
+        <button class="btn" id="bWord" type="button">Revelar palabra</button>
+        <button class="btn quiet" id="bReset" type="button">Reiniciar</button>
+      </div>
+      <p class="msg" id="msg" role="status"></p>
+      <div class="win" id="win" hidden>
+        <h2>¡Crucigrama completo!</h2>
+        <p id="winText"></p>
+        <ul id="winWords"></ul>
+        <button class="btn primary" id="bAgain" type="button">Jugar de nuevo</button>
+      </div>
+    </div>
+    <aside class="clues" aria-label="Pistas">
+      <h2>Horizontales</h2><ol id="listA"></ol>
+      <h2>Verticales</h2><ol id="listD"></ol>
+    </aside>
+  </div>
+  <footer>Gratis y sin registro. Las tildes no se escriben: ENERGIA vale para ENERGÍA. Tu avance se guarda en este navegador.</footer>
+</div>
+
+<script>
+const DATA = {"rows": 17, "cols": 17, "entries": [{"w": "INSTALACION", "disp": "INSTALACIÓN", "clue": "Proceso de colocar y conectar equipos.", "r": 7, "c": 2, "d": "A"}, {"w": "SEGURIDAD", "disp": "SEGURIDAD", "clue": "Normas y medidas para evitar riesgos.", "r": 0, "c": 8, "d": "D"}, {"w": "CABLEADO", "disp": "CABLEADO", "clue": "Conjunto de cables que permiten las conexiones.", "r": 2, "c": 6, "d": "D"}, {"w": "VOLTAJE", "disp": "VOLTAJE", "clue": "Fuerza eléctrica que impulsa la corriente.", "r": 6, "c": 11, "d": "D"}, {"w": "CALIDAD", "disp": "CALIDAD", "clue": "Característica que demuestra que un trabajo está bien realizado.", "r": 10, "c": 10, "d": "A"}, {"w": "PROTECCION", "disp": "PROTECCIÓN", "clue": "Elemento que ayuda a evitar daños.", "r": 12, "c": 7, "d": "A"}, {"w": "AISLANTE", "disp": "AISLANTE", "clue": "Material que impide o dificulta el paso de la electricidad.", "r": 0, "c": 6, "d": "A"}, {"w": "MEDICION", "disp": "MEDICIÓN", "clue": "Acción de conocer el valor de una magnitud.", "r": 2, "c": 2, "d": "D"}, {"w": "INSPECCION", "disp": "INSPECCIÓN", "clue": "Revisión para comprobar que todo esté en buen estado.", "r": 5, "c": 4, "d": "D"}, {"w": "CIRCUITO", "disp": "CIRCUITO", "clue": "Camino por donde circula la corriente eléctrica.", "r": 9, "c": 13, "d": "D"}, {"w": "HERRAMIENTA", "disp": "HERRAMIENTA", "clue": "Instrumento que se utiliza para realizar un trabajo.", "r": 0, "c": 15, "d": "D"}, {"w": "CONEXION", "disp": "CONEXIÓN", "clue": "Unión entre dos equipos o cables.", "r": 14, "c": 8, "d": "A"}, {"w": "ENERGIA", "disp": "ENERGÍA", "clue": "Capacidad para hacer funcionar los equipos.", "r": 3, "c": 0, "d": "A"}]};
+const R = DATA.rows, C = DATA.cols, TOTAL = DATA.entries.length;
+const KEY = "crucigrama-electrico-v1";
+const key = (r, c) => r + "," + c;
+const cells = new Map();
+
+DATA.entries.forEach((e, i) => {
+  e.id = i; e.len = e.w.length; e.keys = [];
+  for (let k = 0; k < e.len; k++) {
+    const r = e.d === "A" ? e.r : e.r + k, c = e.d === "A" ? e.c + k : e.c, kk = key(r, c);
+    e.keys.push(kk);
+    let cell = cells.get(kk);
+    if (!cell) { cell = { k: kk, r, c, ch: e.w[k], A: null, D: null, num: 0 }; cells.set(kk, cell); }
+    cell[e.d] = e;
+  }
+});
+let counter = 0;
+for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+  const cell = cells.get(key(r, c)); if (!cell) continue;
+  const sA = cell.A && cell.A.keys[0] === cell.k, sD = cell.D && cell.D.keys[0] === cell.k;
+  if (sA || sD) { cell.num = ++counter; if (sA) cell.A.num = counter; if (sD) cell.D.num = counter; }
+}
+const across = DATA.entries.filter(e => e.d === "A").sort((a, b) => a.num - b.num);
+const down = DATA.entries.filter(e => e.d === "D").sort((a, b) => a.num - b.num);
+
+let st = { user: {}, hint: {}, secs: 0, hints: 0, won: false };
+try {
+  const s = JSON.parse(localStorage.getItem(KEY) || "null");
+  if (s && s.user) { st = Object.assign(st, s); for (const k of Object.keys(st.user)) if (!cells.has(k)) delete st.user[k]; }
+} catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+
+const first = across[0];
+let active = { k: first.keys[0], dir: "A" };
+let bad = new Set();
+
+const $ = id => document.getElementById(id);
+const board = $("board");
+board.style.setProperty("--cols", C);
+const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+  const cell = cells.get(key(r, c));
+  if (!cell) { const b = document.createElement("div"); b.className = "blank"; b.setAttribute("aria-hidden", "true"); board.appendChild(b); continue; }
+  const el = document.createElement("div"); el.className = "cell"; el.dataset.k = cell.k;
+  if (cell.num) { const n = document.createElement("span"); n.className = "num"; n.textContent = cell.num; el.appendChild(n); }
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.maxLength = 2; inp.autocomplete = "off"; inp.autocapitalize = "characters";
+  inp.spellcheck = false; inp.setAttribute("autocorrect", "off"); inp.tabIndex = -1;
+  inp.setAttribute("aria-label", "Fila " + (r + 1) + ", columna " + (c + 1) + (cell.num ? ", casilla " + cell.num : ""));
+  inp.addEventListener("input", () => onInput(cell, inp));
+  el.appendChild(inp); board.appendChild(el);
+  cell.el = el; cell.inp = inp;
+}
+
+function entryOf(k = active.k, dir = active.dir) { const cell = cells.get(k); return cell[dir] || cell.A || cell.D; }
+function isSolved(e) { return e.keys.every(k => st.user[k] === cells.get(k).ch); }
+
+function select(k, toggle) {
+  const cell = cells.get(k);
+  if (toggle && active.k === k && cell.A && cell.D) active.dir = active.dir === "A" ? "D" : "A";
+  else if (!cell[active.dir]) active.dir = cell.A ? "A" : "D";
+  active.k = k; render(); cell.inp.focus({ preventScroll: true });
+}
+function selectEntry(e) {
+  const target = e.keys.find(k => !st.user[k]) || e.keys[0];
+  active.dir = e.d; active.k = target; render(); cells.get(target).inp.focus({ preventScroll: true });
+}
+function move(k, dir, delta) {
+  const [r, c] = k.split(",").map(Number);
+  const nk = dir === "A" ? key(r, c + delta) : key(r + delta, c);
+  const nc = cells.get(nk); if (!nc) return;
+  if (nc[dir]) active.dir = dir;
+  select(nk, false);
+}
+function advance() {
+  const e = entryOf(), i = e.keys.indexOf(active.k);
+  if (i < e.keys.length - 1) select(e.keys[i + 1], false); else render();
+}
+function stepClue(delta) {
+  const all = across.concat(down), e = entryOf(), i = all.indexOf(e);
+  selectEntry(all[(i + delta + all.length) % all.length]);
+}
+
+function onInput(cell, inp) {
+  const ch = norm(inp.value).toUpperCase().replace(/[^A-Z]/g, "").slice(-1);
+  inp.value = ch;
+  bad.delete(cell.k); delete st.hint[cell.k];
+  if (!ch) { delete st.user[cell.k]; save(); render(); return; }
+  st.user[cell.k] = ch;
+  if (active.k !== cell.k) active.k = cell.k;
+  save(); advance(); checkWin();
+}
+
+board.addEventListener("click", ev => {
+  const el = ev.target.closest(".cell"); if (el) select(el.dataset.k, true);
+});
+board.addEventListener("keydown", ev => {
+  const el = ev.target.closest(".cell"); if (!el) return;
+  const k = el.dataset.k;
+  if (ev.key === "ArrowRight") { ev.preventDefault(); move(k, "A", 1); }
+  else if (ev.key === "ArrowLeft") { ev.preventDefault(); move(k, "A", -1); }
+  else if (ev.key === "ArrowDown") { ev.preventDefault(); move(k, "D", 1); }
+  else if (ev.key === "ArrowUp") { ev.preventDefault(); move(k, "D", -1); }
+  else if (ev.key === "Backspace") {
+    ev.preventDefault(); bad.delete(k); delete st.hint[k];
+    if (st.user[k]) { delete st.user[k]; save(); render(); }
+    else { const e = entryOf(), i = e.keys.indexOf(k); if (i > 0) { const p = e.keys[i - 1]; delete st.user[p]; delete st.hint[p]; bad.delete(p); save(); select(p, false); } }
+  }
+  else if (ev.key === "Delete") { ev.preventDefault(); delete st.user[k]; delete st.hint[k]; bad.delete(k); save(); render(); }
+  else if (ev.key === " ") { ev.preventDefault(); select(k, true); }
+  else if (ev.key === "Tab") { ev.preventDefault(); stepClue(ev.shiftKey ? -1 : 1); }
+  else if (ev.key === "Enter") { ev.preventDefault(); stepClue(1); }
+});
+
+function clueItem(e) {
+  const li = document.createElement("li"); li.dataset.id = e.id;
+  const b = document.createElement("button"); b.type = "button";
+  b.innerHTML = '<span class="n">' + e.num + '</span><span><span class="t"></span> <span class="len">(' + e.len + ')</span></span>';
+  b.querySelector(".t").textContent = e.clue;
+  b.addEventListener("click", () => selectEntry(e));
+  li.appendChild(b); e.li = li; return li;
+}
+across.forEach(e => $("listA").appendChild(clueItem(e)));
+down.forEach(e => $("listD").appendChild(clueItem(e)));
+
+function render() {
+  const ae = entryOf(), inWord = new Set(ae.keys), solvedKeys = new Set();
+  DATA.entries.forEach(e => { if (isSolved(e)) e.keys.forEach(k => solvedKeys.add(k)); });
+  let correct = 0;
+  cells.forEach((cell, k) => {
+    const v = st.user[k] || "";
+    if (cell.inp.value !== v) cell.inp.value = v;
+    if (v === cell.ch) correct++;
+    cell.el.classList.toggle("on", k === active.k);
+    cell.el.classList.toggle("word", inWord.has(k) && k !== active.k);
+    cell.el.classList.toggle("solved", solvedKeys.has(k));
+    cell.el.classList.toggle("bad", bad.has(k));
+    cell.el.classList.toggle("hint", !!st.hint[k]);
+    cell.inp.tabIndex = k === active.k ? 0 : -1;
+  });
+  let done = 0;
+  DATA.entries.forEach(e => {
+    const s = isSolved(e); if (s) done++;
+    e.li.classList.toggle("done", s); e.li.classList.toggle("on", e === ae);
+  });
+  $("sWords").textContent = done + "/" + TOTAL;
+  $("bar").style.width = Math.round(correct / cells.size * 100) + "%";
+  $("clueBar").innerHTML = "<small></small><span></span>";
+  $("clueBar").firstChild.textContent = ae.num + " " + (ae.d === "A" ? "Horizontal" : "Vertical") + " · " + ae.len + " letras";
+  $("clueBar").lastChild.textContent = ae.clue;
+  const lw = ae.li; const box = lw.closest(".clues");
+  if (box && box.scrollHeight > box.clientHeight) { const t = lw.offsetTop - box.offsetTop; if (t < box.scrollTop || t > box.scrollTop + box.clientHeight - 50) box.scrollTop = Math.max(0, t - 60); }
+}
+
+function fmt(s) { return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
+function setMsg(t) { $("msg").textContent = t; }
+
+function checkWin() {
+  if (st.won || !DATA.entries.every(isSolved)) return;
+  st.won = true; save(); showWin();
+}
+function showWin() {
+  $("winText").textContent = "Lo resolviste en " + fmt(st.secs) + (st.hints ? " usando " + st.hints + (st.hints === 1 ? " pista." : " pistas.") : " sin usar pistas.");
+  const ul = $("winWords"); ul.innerHTML = "";
+  DATA.entries.slice().sort((a, b) => a.disp.localeCompare(b.disp, "es")).forEach(e => { const li = document.createElement("li"); li.textContent = e.disp; ul.appendChild(li); });
+  $("win").hidden = false;
+  $("win").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+}
+
+$("bCheck").addEventListener("click", () => {
+  bad = new Set();
+  cells.forEach((cell, k) => { const v = st.user[k]; if (v && v !== cell.ch) bad.add(k); });
+  const filled = Object.keys(st.user).length;
+  setMsg(!filled ? "Escribe algunas letras y vuelve a comprobar." : bad.size ? (bad.size === 1 ? "Hay 1 letra incorrecta, marcada en rojo." : "Hay " + bad.size + " letras incorrectas, marcadas en rojo.") : "Todo lo que escribiste está bien. ¡Sigue así!");
+  render();
+});
+$("bLetter").addEventListener("click", () => {
+  const k = active.k, cell = cells.get(k);
+  if (st.user[k] === cell.ch) { setMsg("Esa letra ya está correcta."); return; }
+  st.user[k] = cell.ch; st.hint[k] = 1; st.hints++; bad.delete(k); save(); render(); checkWin(); setMsg("Pista usada: " + st.hints);
+});
+$("bWord").addEventListener("click", () => {
+  const e = entryOf(); let used = false;
+  e.keys.forEach(k => { const cell = cells.get(k); if (st.user[k] !== cell.ch) { st.user[k] = cell.ch; st.hint[k] = 1; bad.delete(k); used = true; } });
+  if (used) st.hints += 2;
+  save(); render(); checkWin(); setMsg(used ? "Palabra revelada. Cuenta como 2 pistas." : "Esa palabra ya está completa.");
+});
+let resetTimer = 0;
+function resetGame() {
+  st = { user: {}, hint: {}, secs: 0, hints: 0, won: false }; bad = new Set(); save();
+  $("win").hidden = true; setMsg(""); active = { k: first.keys[0], dir: "A" }; render();
+}
+$("bReset").addEventListener("click", () => {
+  const b = $("bReset");
+  if (!resetTimer) { b.textContent = "¿Borrar todo?"; resetTimer = setTimeout(() => { b.textContent = "Reiniciar"; resetTimer = 0; }, 3000); return; }
+  clearTimeout(resetTimer); resetTimer = 0; b.textContent = "Reiniciar"; resetGame();
+});
+$("bAgain").addEventListener("click", resetGame);
+
+setInterval(() => {
+  if (st.won || document.hidden || !Object.keys(st.user).length) return;
+  st.secs++; $("sTime").textContent = fmt(st.secs); if (st.secs % 5 === 0) save();
+}, 1000);
+
+$("sTime").textContent = fmt(st.secs);
+render();
+if (st.won) showWin();
+</script>
+</body>
+</html>
